@@ -13,7 +13,7 @@ from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
-from ..common import normalize, to_extended
+from ..common import is_link, normalize, to_extended
 from .owners import file_owner
 
 GROUPINGS = ("file", "type", "dir")
@@ -94,7 +94,7 @@ def scan(
             rel = ntpath.join(rel_dir, entry.name) if rel_dir else entry.name
             path = ntpath.join(root, rel)
             try:
-                if entry.is_symlink() or entry.is_junction():
+                if is_link(entry):
                     result.skipped_links += 1
                     continue
                 if entry.is_dir(follow_symlinks=False):

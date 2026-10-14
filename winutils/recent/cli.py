@@ -12,7 +12,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import TextIO
 
-from ..common import normalize, plural, to_extended
+from ..common import normalize, path_arg, plural, to_extended
 from .owners import file_owner
 from .scanner import GROUPINGS, FileInfo, ScanResult, group_files, owner_counts, scan
 
@@ -63,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
         "local date or time (2026-10-01, 2026-10-01T08:00). Exit status: 0 files "
         "matched, 1 no file matched, 2 error.",
     )
-    parser.add_argument("root", help="folder to scan")
+    parser.add_argument("root", type=path_arg, help="folder or drive (such as D:\\) to scan")
     parser.add_argument(
         "-i",
         "--include",

@@ -15,7 +15,7 @@ import ntpath
 import os
 from dataclasses import dataclass, field
 
-from ..common import normalize, strip_extended, to_extended  # noqa: F401 (re-exported)
+from ..common import is_link, normalize, strip_extended, to_extended  # noqa: F401 (re-exported)
 
 MAX_PATH = 260  # includes the terminating null, so 259 usable characters
 DIR_RESERVE = 12  # CreateDirectory keeps room for an 8.3 file name: MAX_PATH - 12
@@ -120,7 +120,7 @@ def scan(root: str, target: str | None = None, max_path: int = MAX_PATH) -> Scan
             rel = ntpath.join(rel_dir, entry.name) if rel_dir else entry.name
             source = ntpath.join(root, rel)
             try:
-                if entry.is_symlink() or entry.is_junction():
+                if is_link(entry):
                     result.skipped_links += 1
                     continue
                 is_dir = entry.is_dir(follow_symlinks=False)

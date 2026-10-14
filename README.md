@@ -47,6 +47,9 @@ The examples assume the profile function or pip install from [Getting started](#
 # Check paths as they are now
 longpaths C:\data\Photos
 
+# Check a whole drive
+longpaths D:\
+
 # Check paths as they will be after copying the contents of C:\data\Photos to E:\Backup\2024\Photos
 longpaths C:\data\Photos --target E:\Backup\2024\Photos
 
@@ -55,6 +58,8 @@ longpaths C:\data\Photos -t E:\Backup\2024\Photos -f csv -o problems.csv
 ```
 
 `--target` is the folder that receives the *contents* of the scanned folder. If you are dragging `C:\data\Photos` onto `E:\Backup`, the files end up under `E:\Backup\Photos`, so pass `--target E:\Backup\Photos`. The target does not have to exist, so you can check a copy to a drive that isn't plugged in.
+
+In cmd, a quoted path that ends in a backslash, such as `"D:\"`, reaches the program as `D:"` because the backslash escapes the closing quote. `longpaths` repairs that when the path is the last thing on the line, but anything after it gets swallowed into the same argument, so write `D:\` without quotes, or `"D:\\"`.
 
 ### What counts as too long
 
@@ -84,7 +89,7 @@ Too long: 1 file and 1 folder.
 - **LEN**: the longest of the checked paths. **OVER**: how many characters to remove to get under the limit.
 - **WHY**: which check failed: `source`, `target`, `name`, or a combination such as `source+target`.
 - `--format csv` and `--format json` include the full source and target paths. With `--output FILE` the report is written as UTF-8 (CSV with a BOM so Excel reads it correctly).
-- Symbolic links and junctions are counted but not followed. Folders that can't be read (for example, access denied) are listed at the end; `--quiet` only counts them.
+- Symbolic links and junctions are counted but not followed. Folders that can't be read (for example, access denied) are listed at the end; `--quiet` only counts them. Scanning a whole drive without admin rights always hits a few, such as `System Volume Information` and other users' folders in `$Recycle.Bin`.
 
 Exit status: `0` if nothing is too long, `1` if something is, `2` on an error such as a missing folder. You can use it in scripts:
 

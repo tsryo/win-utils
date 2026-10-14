@@ -1,5 +1,6 @@
 """Tests for winutils.longpaths."""
 
+import argparse
 import csv
 import io
 import json
@@ -12,6 +13,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
+from winutils.common import path_arg
 from winutils.longpaths import cli
 from winutils.longpaths.scanner import MAX_NAME, check, normalize, scan, to_extended, win_len
 
@@ -32,6 +34,25 @@ class WinLenTests(unittest.TestCase):
         self.assertEqual(win_len("abc"), 3)
         self.assertEqual(win_len("café"), 4)
         self.assertEqual(win_len("\U0001F600"), 2)  # emoji is a surrogate pair
+
+
+class PathArgTests(unittest.TestCase):
+    def test_trailing_quote_becomes_backslash(self):
+        # cmd passes "D:\" as D:" because the backslash escapes the closing quote.
+        self.assertEqual(path_arg('D:"'), "D:\\")
+        self.assertEqual(normalize(path_arg('D:"')), "D:\\")  # the drive root, not D:'s current folder
+        self.assertEqual(path_arg('C:\\My Photos"'), "C:\\My Photos\\")
+        self.assertEqual(path_arg('D:" '), "D:\\")  # "D:\" & echo done
+
+    def test_plain_path_unchanged(self):
+        for path in ("D:\\", "D:", "C:\\data\\Photos", "\\\\nas\\share"):
+            with self.subTest(path=path):
+                self.assertEqual(path_arg(path), path)
+
+    def test_swallowed_arguments_rejected(self):
+        # "D:\" -t "E:\" arrives as the single argument D:" -t E:"
+        with self.assertRaises(argparse.ArgumentTypeError):
+            path_arg('D:" -t E:"')
 
 
 class CheckTests(unittest.TestCase):
@@ -149,6 +170,18 @@ class CliTests(unittest.TestCase):
         code, _, err = self.run_cli(ntpath.join(self.root, "missing"))
         self.assertEqual(code, cli.EXIT_ERROR)
         self.assertIn("not a folder", err)
+
+    def test_accepts_quoted_root_ending_in_backslash(self):
+        code, out, _ = self.run_cli(self.root + '"')  # how cmd passes "<root>\"
+        self.assertEqual(code, cli.EXIT_OK)
+        self.assertIn(f"Source  {self.root}\n", out)
+
+    def test_explains_swallowed_arguments(self):
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit) as ctx:
+            cli.main([self.root + '" -t Z:"'])
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertIn("escapes its closing quote", stderr.getvalue())
 
     def test_rejects_tiny_max_path(self):
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as ctx:

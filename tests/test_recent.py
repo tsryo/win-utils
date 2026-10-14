@@ -210,6 +210,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, cli.EXIT_ERROR)
         self.assertIn("not a folder", err)
 
+    def test_accepts_quoted_root_ending_in_backslash(self):
+        code, out, _ = self.run_cli(self.root + '"', "--no-owners")  # how cmd passes "<root>\"
+        self.assertEqual(code, cli.EXIT_OK)
+        self.assertIn(f"Folder  {self.root}\n", out)
+
     def test_rejects_bad_since_and_negative_top(self):
         for argv in ([self.root, "--since", "soon"], [self.root, "--top", "-1"]):
             with self.subTest(argv=argv), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as ctx:

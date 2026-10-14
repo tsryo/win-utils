@@ -10,7 +10,7 @@ import os
 import sys
 from typing import TextIO
 
-from ..common import plural
+from ..common import path_arg, plural
 from .scanner import (
     DIR_RESERVE,
     MAX_NAME,
@@ -51,10 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--target E:\\Backup\\Photos. Exit status: 0 nothing too long, 1 something "
         "too long, 2 error.",
     )
-    parser.add_argument("root", help="folder to scan")
+    parser.add_argument("root", type=path_arg, help="folder or drive (such as D:\\) to scan")
     parser.add_argument(
         "-t",
         "--target",
+        type=path_arg,
         metavar="DEST",
         help="also check each path as it would be after copying the contents of ROOT "
         "into DEST (DEST does not need to exist)",
