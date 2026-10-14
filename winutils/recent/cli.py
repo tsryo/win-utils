@@ -10,7 +10,8 @@ import re
 import sys
 import time
 from datetime import datetime, timedelta, timezone
-from typing import TextIO
+from itertools import chain
+from typing import List, Optional, TextIO, Tuple
 
 from ..common import normalize, path_arg, plural, to_extended
 from .owners import file_owner
@@ -27,7 +28,9 @@ GROUP_OWNERS_SHOWN = 3  # owners named in each group header before "+N more"
 FIELDS = ("group", "modified", "size", "owner", "relative_path", "path")
 GROUP_NOUNS = {"type": ("extension", "extensions"), "dir": ("folder", "folders")}
 
-Groups = list[tuple[str | None, list[FileInfo]]]
+# Unlike annotations, an alias is evaluated on import, and list[...] and X | None
+# need Python 3.9 and 3.10, so it is spelled with typing names.
+Groups = List[Tuple[Optional[str], List[FileInfo]]]
 
 _DURATION = re.compile(r"(\d+)([smhdw])", re.IGNORECASE)
 _UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 7 * 86400}
@@ -64,11 +67,12 @@ def build_parser() -> argparse.ArgumentParser:
         "matched, 1 no file matched, 2 error.",
     )
     parser.add_argument("root", type=path_arg, help="folder or drive (such as D:\\) to scan")
+    # Each use appends a list of patterns, flattened in main (action="extend" needs Python 3.8).
     parser.add_argument(
         "-i",
         "--include",
         metavar="PATTERN",
-        action="extend",
+        action="append",
         type=split_patterns,
         default=[],
         help="only files whose name matches PATTERN",
@@ -77,7 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
         "-x",
         "--exclude",
         metavar="PATTERN",
-        action="extend",
+        action="append",
         type=split_patterns,
         default=[],
         help="leave out files whose name matches PATTERN, and skip folders whose "
@@ -329,8 +333,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"recent: not a folder: {root}", file=sys.stderr)
         return EXIT_ERROR
 
+    include = list(chain.from_iterable(args.include))
+    exclude = list(chain.from_iterable(args.exclude))
     try:
-        result = scan(root, args.include, args.exclude, args.since, None if args.no_owners else file_owner)
+        result = scan(root, include, exclude, args.since, None if args.no_owners else file_owner)
     except KeyboardInterrupt:
         print("recent: interrupted", file=sys.stderr)
         return 130

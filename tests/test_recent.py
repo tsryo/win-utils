@@ -1,5 +1,7 @@
 """Tests for winutils.recent."""
 
+from __future__ import annotations
+
 import argparse
 import csv
 import io
