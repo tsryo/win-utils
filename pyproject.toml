@@ -12,6 +12,7 @@ dependencies = []
 
 [project.scripts]
 longpaths = "winutils.longpaths.cli:main"
+recent = "winutils.recent.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["winutils*"]

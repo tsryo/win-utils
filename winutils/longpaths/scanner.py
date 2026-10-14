@@ -15,40 +15,16 @@ import ntpath
 import os
 from dataclasses import dataclass, field
 
+from ..common import normalize, strip_extended, to_extended  # noqa: F401 (re-exported)
+
 MAX_PATH = 260  # includes the terminating null, so 259 usable characters
 DIR_RESERVE = 12  # CreateDirectory keeps room for an 8.3 file name: MAX_PATH - 12
 MAX_NAME = 255  # longest single file or folder name on NTFS
-
-_EXTENDED = "\\\\?\\"
-_EXTENDED_UNC = "\\\\?\\UNC\\"
 
 
 def win_len(text: str) -> int:
     """Return the length of text the way Windows counts it, in UTF-16 code units."""
     return len(text.encode("utf-16-le", "surrogatepass")) // 2
-
-
-def strip_extended(path: str) -> str:
-    r"""Remove a \\?\ or \\?\UNC\ prefix, if present."""
-    if path.startswith(_EXTENDED_UNC):
-        return "\\\\" + path[len(_EXTENDED_UNC):]
-    if path.startswith(_EXTENDED):
-        return path[len(_EXTENDED):]
-    return path
-
-
-def to_extended(path: str) -> str:
-    """Add the extended-length prefix so Windows accepts paths over MAX_PATH."""
-    if path.startswith(_EXTENDED):
-        return path
-    if path.startswith("\\\\"):
-        return _EXTENDED_UNC + path[2:]
-    return _EXTENDED + path
-
-
-def normalize(path: str) -> str:
-    """Return path as an absolute path without an extended-length prefix."""
-    return ntpath.abspath(strip_extended(path))
 
 
 def path_limit(kind: str, max_path: int = MAX_PATH) -> int:

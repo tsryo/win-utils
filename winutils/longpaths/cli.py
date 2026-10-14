@@ -10,6 +10,7 @@ import os
 import sys
 from typing import TextIO
 
+from ..common import plural
 from .scanner import (
     DIR_RESERVE,
     MAX_NAME,
@@ -80,11 +81,6 @@ def build_parser() -> argparse.ArgumentParser:
         "-q", "--quiet", action="store_true", help="count unreadable items instead of listing them"
     )
     return parser
-
-
-def plural(count: int, singular: str, plural_form: str | None = None) -> str:
-    word = singular if count == 1 else (plural_form or singular + "s")
-    return f"{count:,} {word}"
 
 
 def summary(result: ScanResult, quiet: bool) -> list[str]:

@@ -6,6 +6,8 @@ import json
 import ntpath
 import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -173,6 +175,20 @@ class CliTests(unittest.TestCase):
         self.assertEqual(rows[0]["relative_path"], "a.txt")
         self.assertEqual(rows[0]["problems"], "source")
         self.assertEqual(rows[0]["target_path"], "")
+
+
+class LauncherTests(unittest.TestCase):
+    def test_runs_from_another_folder_without_install(self):
+        root = make_temp_dir(self)
+        launcher = ntpath.join(ntpath.dirname(ntpath.dirname(ntpath.abspath(__file__))), "longpaths.py")
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+
+        proc = subprocess.run(
+            [sys.executable, launcher, root], cwd=root, env=env, capture_output=True, text=True
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Nothing is too long.", proc.stdout)
 
 
 if __name__ == "__main__":
