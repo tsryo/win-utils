@@ -10,10 +10,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 
-from winutils.common import path_arg
+from winutils.common import find_reparse_tag, is_link, path_arg
 from winutils.longpaths import cli
 from winutils.longpaths.scanner import MAX_NAME, check, normalize, scan, to_extended, win_len
 
@@ -53,6 +54,43 @@ class PathArgTests(unittest.TestCase):
         # "D:\" -t "E:\" arrives as the single argument D:" -t E:"
         with self.assertRaises(argparse.ArgumentTypeError):
             path_arg('D:" -t E:"')
+
+
+class OldDirEntry:
+    """A DirEntry as Python 3.7 gives it: no is_junction() and no st_reparse_tag."""
+
+    def __init__(self, entry: os.DirEntry):
+        self._entry = entry
+        self.path = entry.path
+
+    def is_symlink(self) -> bool:
+        return self._entry.is_symlink()
+
+    def stat(self, follow_symlinks: bool = True):
+        info = self._entry.stat(follow_symlinks=follow_symlinks)
+        return types.SimpleNamespace(st_file_attributes=info.st_file_attributes)
+
+
+@unittest.skipUnless(_winapi and hasattr(_winapi, "CreateJunction"), "needs Windows junctions")
+class IsLinkTests(unittest.TestCase):
+    def setUp(self):
+        self.root = make_temp_dir(self)
+        os.mkdir(ntpath.join(self.root, "plain"))
+        _winapi.CreateJunction(ntpath.join(self.root, "plain"), ntpath.join(self.root, "loop"))
+        self.addCleanup(os.rmdir, ntpath.join(self.root, "loop"))
+        with os.scandir(to_extended(self.root)) as it:
+            self.entries = {entry.name: entry for entry in it}
+
+    def test_junction_is_link(self):
+        self.assertTrue(is_link(self.entries["loop"]))
+        self.assertFalse(is_link(self.entries["plain"]))
+
+    def test_junction_found_without_reparse_tag_in_stat(self):
+        self.assertTrue(is_link(OldDirEntry(self.entries["loop"])))
+        self.assertFalse(is_link(OldDirEntry(self.entries["plain"])))
+
+    def test_find_reparse_tag(self):
+        self.assertEqual(find_reparse_tag(self.entries["loop"].path), 0xA0000003)
 
 
 class CheckTests(unittest.TestCase):

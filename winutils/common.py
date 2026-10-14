@@ -13,6 +13,7 @@ import stat
 
 _EXTENDED = "\\\\?\\"
 _EXTENDED_UNC = "\\\\?\\UNC\\"
+_JUNCTION_TAG = 0xA0000003  # IO_REPARSE_TAG_MOUNT_POINT; stat only names it from Python 3.8
 
 
 def strip_extended(path: str) -> str:
@@ -42,13 +43,37 @@ def is_link(entry: os.DirEntry) -> bool:
     """Return True for a symbolic link or junction, which the scans count but don't follow.
 
     Junctions are recognised by their reparse tag rather than DirEntry.is_junction(),
-    which needs Python 3.12. On Windows the tag comes with the folder listing, so
-    this does not touch the disk.
+    which needs Python 3.12. On Windows the attributes and tag come with the folder
+    listing, so this only touches the disk on Python 3.7, and only for reparse points.
     """
     if entry.is_symlink():
         return True
-    tag = getattr(entry.stat(follow_symlinks=False), "st_reparse_tag", 0)
-    return tag == stat.IO_REPARSE_TAG_MOUNT_POINT
+    info = entry.stat(follow_symlinks=False)
+    if not getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+        return False
+    tag = getattr(info, "st_reparse_tag", None)  # Python 3.8+
+    if tag is None:
+        tag = find_reparse_tag(entry.path)
+    return tag == _JUNCTION_TAG
+
+
+def find_reparse_tag(path: str) -> int:
+    """Read the reparse tag of path with FindFirstFileW, for Python 3.7, whose stat has none."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    find_first = kernel32.FindFirstFileW
+    find_first.argtypes = (wintypes.LPCWSTR, ctypes.POINTER(wintypes.WIN32_FIND_DATAW))
+    find_first.restype = wintypes.HANDLE
+    kernel32.FindClose.argtypes = (wintypes.HANDLE,)
+
+    data = wintypes.WIN32_FIND_DATAW()
+    handle = find_first(to_extended(path), ctypes.byref(data))
+    if handle is None or handle == wintypes.HANDLE(-1).value:  # INVALID_HANDLE_VALUE
+        raise ctypes.WinError(ctypes.get_last_error())
+    kernel32.FindClose(handle)
+    return data.dwReserved0  # holds the reparse tag when the item is a reparse point
 
 
 def path_arg(text: str) -> str:
